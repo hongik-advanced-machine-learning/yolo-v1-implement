@@ -32,7 +32,7 @@ NUM_WORKERS = 8
 PIN_MEMORY = True
 LOAD_MODEL = True
 SAVE_MODEL = True
-LOAD_MODEL_FILE = "voc.dropout.tar"
+LOAD_MODEL_FILE = "save/voc.dropout.tar"
 
 DATASET = "VOC"
 TRAIN = ""

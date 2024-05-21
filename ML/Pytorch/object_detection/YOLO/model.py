@@ -20,8 +20,8 @@ def _create_fcs(split_size, num_boxes, num_classes):
 class Yolov1(nn.Module):
     def __init__(self, **kwargs):
         super(Yolov1, self).__init__()
-        self.backbone = Darknet("data/darknet/yolov1.cfg")
-        self.backbone.load_state_dict(torch.load("data/darknet/yolov1-pytorch.pth"))
+        self.backbone = Darknet("data/darknet/cfg/yolov1.cfg")
+        self.backbone.load_state_dict(torch.load("data/darknet/model/yolov1-pytorch.pth"))
         self.fcs = _create_fcs(**kwargs)
 
         for param in self.backbone.parameters():

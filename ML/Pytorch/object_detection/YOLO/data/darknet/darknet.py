@@ -141,6 +141,6 @@ class MaxPoolStride1(nn.Module):
 
 if __name__ == '__main__':
     model = Darknet("yolov1.cfg")
-    model.load_state_dict(torch.load("yolov1-pytorch.pth"))
+    model.load_state_dict(torch.load("model/yolov1-pytorch.pth"))
 
     summary(model, (3, 448, 448))
