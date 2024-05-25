@@ -1,9 +1,12 @@
+from collections import defaultdict
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from collections import Counter
 from tqdm import tqdm
+
 
 def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     """
@@ -60,7 +63,7 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
         bboxes (list): list of lists containing all bboxes with each bboxes
         specified as [class_pred, prob_score, x1, y1, x2, y2]
         iou_threshold (float): threshold where predicted bboxes is correct
-        threshold (float): threshold to remove predicted bboxes (independent of IoU) 
+        threshold (float): threshold to remove predicted bboxes (independent of IoU)
         box_format (str): "midpoint" or "corners" used to specify bboxes
 
     Returns:
@@ -80,12 +83,11 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
             box
             for box in bboxes
             if box[0] != chosen_box[0]
-            or intersection_over_union(
+               or intersection_over_union(
                 torch.tensor(chosen_box[2:]),
                 torch.tensor(box[2:]),
                 box_format=box_format,
-            )
-            < iou_threshold
+            ) < iou_threshold
         ]
 
         bboxes_after_nms.append(chosen_box)
@@ -93,22 +95,49 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
     return bboxes_after_nms
 
 
+def nms(bboxes: list[list[int | float]],
+        iou_threshold: float,
+        threshold: float,
+        box_format="corners") -> list[list[int | float]]:
+    bboxes = [box for box in bboxes if box[1] > threshold]
+    bboxes = sorted(bboxes, key=lambda x: x[1])
+
+    dict = defaultdict(list)
+    for box in bboxes:
+        dict[box[0]].append(box)
+
+    result = []
+
+    for bboxes in dict.values():
+        while len(bboxes) > 0:
+            chosen_box = bboxes.pop()
+            bboxes = [box for box in bboxes if
+                      intersection_over_union(
+                          torch.tensor(box[2:]),
+                          torch.tensor(chosen_box[2:]),
+                          box_format=box_format
+                      ) < iou_threshold]
+            result.append(chosen_box)
+
+    return result
+
+
 def mean_average_precision(
-    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
+        pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
 ):
     """
-    Calculates mean average precision 
+    Calculates mean average precision
 
     Parameters:
         pred_boxes (list): list of lists containing all bboxes with each bboxes
         specified as [train_idx, class_prediction, prob_score, x1, y1, x2, y2]
-        true_boxes (list): Similar as pred_boxes except all the correct ones 
+        true_boxes (list): Similar as pred_boxes except all the correct ones
         iou_threshold (float): threshold where predicted bboxes is correct
         box_format (str): "midpoint" or "corners" used to specify bboxes
         num_classes (int): number of classes
 
     Returns:
-        float: mAP value across all classes given a specific IoU threshold 
+        float: mAP value across all classes given a specific IoU threshold
     """
 
     # list storing all AP for respective classes
@@ -150,7 +179,7 @@ def mean_average_precision(
         TP = torch.zeros((len(detections)))
         FP = torch.zeros((len(detections)))
         total_true_bboxes = len(ground_truths)
-        
+
         # If none exists for this class then we can safely skip
         if total_true_bboxes == 0:
             continue
@@ -233,16 +262,17 @@ def plot_image(image, boxes):
 
     plt.show()
 
+
 def get_bboxes(
-    loader,
-    model,
-    iou_threshold,
-    threshold,
-    pred_format="cells",
-    box_format="midpoint",
-    device="mps",
-    S=7,
-    C=20
+        loader,
+        model,
+        iou_threshold,
+        threshold,
+        pred_format="cells",
+        box_format="midpoint",
+        device="mps",
+        S=7,
+        C=20
 ):
     all_pred_boxes = []
     all_true_boxes = []
@@ -267,15 +297,14 @@ def get_bboxes(
         bboxes = cellboxes_to_boxes(predictions, S, C)
 
         for idx in range(batch_size):
-            nms_boxes = non_max_suppression(
+            nms_boxes = nms(
                 bboxes[idx],
                 iou_threshold=iou_threshold,
                 threshold=threshold,
                 box_format=box_format,
             )
 
-
-            #if batch_idx == 0 and idx == 0:
+            # if batch_idx == 0 and idx == 0:
             #    plot_image(x[idx].permute(1,2,0).to("cpu"), nms_boxes)
             #    print(nms_boxes)
 
@@ -293,7 +322,6 @@ def get_bboxes(
     return all_pred_boxes, all_true_boxes
 
 
-
 def convert_cellboxes(predictions, S=7, C=11):
     """
     Converts bounding boxes output from Yolo with
@@ -307,11 +335,11 @@ def convert_cellboxes(predictions, S=7, C=11):
 
     predictions = predictions.to("cpu")
     batch_size = predictions.shape[0]
-    predictions = predictions.reshape(batch_size, S, S, C+10)
-    bboxes1 = predictions[..., C+1:C+5]
-    bboxes2 = predictions[..., C+6:C+10]
+    predictions = predictions.reshape(batch_size, S, S, C + 10)
+    bboxes1 = predictions[..., C + 1:C + 5]
+    bboxes2 = predictions[..., C + 6:C + 10]
     scores = torch.cat(
-        (predictions[..., C].unsqueeze(0), predictions[..., C+5].unsqueeze(0)), dim=0
+        (predictions[..., C].unsqueeze(0), predictions[..., C + 5].unsqueeze(0)), dim=0
     )
     best_box = scores.argmax(0).unsqueeze(-1)
     best_boxes = bboxes1 * (1 - best_box) + best_box * bboxes2
@@ -321,12 +349,8 @@ def convert_cellboxes(predictions, S=7, C=11):
     w_y = 1 / S * best_boxes[..., 2:4]
     converted_bboxes = torch.cat((x, y, w_y), dim=-1)
     predicted_class = predictions[..., :C].argmax(-1).unsqueeze(-1)
-    best_confidence = torch.max(predictions[..., C], predictions[..., C+5]).unsqueeze(
-        -1
-    )
-    converted_preds = torch.cat(
-        (predicted_class, best_confidence, converted_bboxes), dim=-1
-    )
+    best_confidence = torch.max(predictions[..., C], predictions[..., C + 5]).unsqueeze(-1)
+    converted_preds = torch.cat((predicted_class, best_confidence, converted_bboxes), dim=-1)
 
     return converted_preds
 
@@ -344,6 +368,7 @@ def cellboxes_to_boxes(out, S=7, C=11):
         all_bboxes.append(bboxes)
 
     return all_bboxes
+
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
