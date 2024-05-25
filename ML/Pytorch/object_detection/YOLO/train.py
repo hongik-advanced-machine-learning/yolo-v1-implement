@@ -35,8 +35,6 @@ SAVE_MODEL = False
 LOAD_MODEL_FILE = "save/voc.dropout.tar"
 
 DATASET = "VOC"
-TRAIN = ""
-TEST = ""
 NUM_CLASS = 20
 
 transform = transforms.Compose([transforms.Resize((448, 448)), transforms.ToTensor(), ])
@@ -46,8 +44,8 @@ def load_dataloader():
     train_dataset = CustomDataset(
         os.path.join("data", DATASET, "train.csv"),
         transform=transform,
-        img_dir=os.path.join("data", DATASET, TRAIN, "images"),
-        label_dir=os.path.join("data", DATASET, TRAIN, "labels"),
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
         C=NUM_CLASS,
     )
 
@@ -63,8 +61,8 @@ def load_dataloader():
     test_dataset = CustomDataset(
         os.path.join("data", DATASET, "test.csv"),
         transform=transform,
-        img_dir=os.path.join("data", DATASET, TEST, "images"),
-        label_dir=os.path.join("data", DATASET, TEST, "labels"),
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
         C=NUM_CLASS
     )
 
@@ -140,13 +138,14 @@ def print_map(model, train_loader, test_loader):
     mean_avg_prec = mean_average_precision(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
-    print(f"Train mAP: {mean_avg_prec}")
+    print(f"Train mAP: {mean_avg_prec:.5g}")
 
-    pred_boxes, target_boxes = get_bboxes(test_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS, device=DEVICE)
+    pred_boxes, target_boxes = get_bboxes(test_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS,
+                                          device=DEVICE)
     mean_avg_prec = mean_average_precision(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
-    print(f"Test mAP: {mean_avg_prec}")
+    print(f"Test mAP: {mean_avg_prec:.5g}")
 
 
 def main(model, optimizer, scheduler):
