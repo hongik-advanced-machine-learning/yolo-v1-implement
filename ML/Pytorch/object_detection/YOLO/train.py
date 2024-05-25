@@ -162,7 +162,7 @@ def main(model, optimizer, scheduler):
 
         time.sleep(5)
 
-        test_loop = tqdm(train_loader, leave=True)
+        test_loop = tqdm(test_loader, leave=True)
         test_loop.set_description(f"[Test] Epoch {epoch + 1}")
         test_fn(model, scheduler, loss_fn, test_loop)
 
