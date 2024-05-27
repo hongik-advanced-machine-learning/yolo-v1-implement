@@ -1,5 +1,6 @@
 import os
 import time
+import yaml
 
 import torch
 import torchvision.transforms as transforms
@@ -13,8 +14,9 @@ from dataset import CustomDataset
 from utils import *
 from loss import YoloLoss
 
-seed = 123
-torch.manual_seed(seed)
+
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 # Hyperparameters etc. 
 DEVICE = (
@@ -30,7 +32,6 @@ WEIGHT_DECAY = 0
 EPOCHS = 1
 NUM_WORKERS = 8
 PIN_MEMORY = True
-LOAD_MODEL = True
 SAVE_MODEL = False
 LOAD_MODEL_FILE = "save/voc.dropout.tar"
 
@@ -79,12 +80,14 @@ def load_dataloader():
 
 
 def load_model_optimizer_scheduler():
-    model = Yolov1(split_size=7, num_boxes=2, num_classes=NUM_CLASS).to(DEVICE)
+    model = Yolov1(split_size=7, num_boxes=2, num_classes=NUM_CLASS, config=config).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = ReduceLROnPlateau(optimizer, mode="max", patience=2)
 
-    if LOAD_MODEL:
+    try:
         load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
+    except FileNotFoundError:
+        pass
 
     return model, optimizer, scheduler
 
