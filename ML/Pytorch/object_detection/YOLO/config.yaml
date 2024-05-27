@@ -1,0 +1,20 @@
+yolo-v1:
+  cfg: data/darknet/cfg/yolov1.cfg
+  weight: data/darknet/model/yolov1-pytorch.pth
+
+param:
+  learning_rate: 0.00002
+  batch_size: 16
+  weight_decay: 0
+  epochs: 1
+
+pytorch:
+  seed: 123
+  num_workers: 8
+  pin_memory: true
+  save_model: true
+  model_path: save/voc.tar
+
+dataset:
+  name: VOC
+  num_class: 20

@@ -21,11 +21,12 @@ def _create_fcs(split_size, num_boxes, num_classes, config):
 class Yolov1(nn.Module):
     def __init__(self, **kwargs):
         super(Yolov1, self).__init__()
-        self.backbone = Darknet(config['yolov1_cfg'])
-        self.backbone.load_state_dict(torch.load(config['yolov1_weight']))
+        config = kwargs["config"]
+        self.backbone = Darknet(config["yolo-v1"]["cfg"])
+        self.backbone.load_state_dict(torch.load(config["yolo-v1"]["weight"]))
         self.fcs = _create_fcs(**kwargs)
 
-        #back bone freezing
+        # backbone freezing
         for param in self.backbone.parameters():
             param.requires_grad = False
 
@@ -36,8 +37,7 @@ class Yolov1(nn.Module):
 
 
 if __name__ == "__main__":
-    
-    with open('config.yaml', 'r') as file:
+    with open("config.yaml", "r") as file:
         config = yaml.safe_load(file)
-    model = Yolov1(split_size=7, num_boxes=3, num_classes=11, config=config)
+    model = Yolov1(split_size=7, num_boxes=3, num_classes=20, config=config)
     summary(model, (3, 448, 448))
