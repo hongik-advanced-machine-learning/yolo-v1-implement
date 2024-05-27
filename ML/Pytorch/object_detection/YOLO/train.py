@@ -18,7 +18,8 @@ from loss import YoloLoss
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-# Hyperparameters etc. 
+torch.manual_seed(config["pytorch"]["seed"])
+
 DEVICE = (
     "mps"
     if torch.backends.mps.is_available()
@@ -26,17 +27,19 @@ DEVICE = (
     if torch.cuda.is_available()
     else "cpu"
 )
-LEARNING_RATE = 2e-5
-BATCH_SIZE = 16
-WEIGHT_DECAY = 0
-EPOCHS = 1
-NUM_WORKERS = 8
-PIN_MEMORY = True
-SAVE_MODEL = False
-LOAD_MODEL_FILE = "save/voc.dropout.tar"
 
-DATASET = "VOC"
-NUM_CLASS = 20
+LEARNING_RATE = config["param"]["learning_rate"]
+BATCH_SIZE = config["param"]["batch_size"]
+WEIGHT_DECAY = config["param"]["weight_decay"]
+EPOCHS = config["param"]["epochs"]
+
+NUM_WORKERS = config["pytorch"]["num_workers"]
+PIN_MEMORY = config["pytorch"]["pin_memory"]
+SAVE_MODEL = config["pytorch"]["save_model"]
+LOAD_MODEL_FILE = config["pytorch"]["model_path"]
+
+DATASET = config["dataset"]["name"]
+NUM_CLASS = config["dataset"]["num_class"]
 
 transform = transforms.Compose([transforms.Resize((448, 448)), transforms.ToTensor(), ])
 
@@ -138,14 +141,14 @@ def test_fn(model, scheduler, loss_fn, loop):
 
 def print_map(model, train_loader, test_loader):
     pred_boxes, target_boxes = get_bboxes(train_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS)
-    mean_avg_prec = mean_average_precision(
+    mean_avg_prec = map(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
     print(f"Train mAP: {mean_avg_prec:.5g}")
 
     pred_boxes, target_boxes = get_bboxes(test_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS,
                                           device=DEVICE)
-    mean_avg_prec = mean_average_precision(
+    mean_avg_prec = map(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
     print(f"Test mAP: {mean_avg_prec:.5g}")
@@ -157,7 +160,7 @@ def main(model, optimizer, scheduler):
     loss_fn = YoloLoss(S=7, B=2, C=NUM_CLASS).to(DEVICE)
 
     for epoch in range(EPOCHS):
-        print(f"Epoch: {epoch + 1}, LR: {optimizer.param_groups[0]['lr']}")
+        print(f"Epoch: {epoch + 1}, LR: {optimizer.param_groups[0]["lr"]}")
 
         train_loop = tqdm(train_loader, leave=True)
         train_loop.set_description(f"[Train] Epoch {epoch + 1}")
