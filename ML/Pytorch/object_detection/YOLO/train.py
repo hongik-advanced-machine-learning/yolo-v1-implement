@@ -14,7 +14,6 @@ from dataset import CustomDataset
 from utils import *
 from loss import YoloLoss
 
-
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
@@ -85,10 +84,10 @@ def load_dataloader():
 def load_model_optimizer_scheduler():
     model = Yolov1(split_size=7, num_boxes=2, num_classes=NUM_CLASS, config=config).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-    scheduler = ReduceLROnPlateau(optimizer, mode="max", patience=2)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
 
     try:
-        load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
+        load_checkpoint(torch.load(LOAD_MODEL_FILE, map_location=DEVICE), model, optimizer)
     except FileNotFoundError:
         pass
 
@@ -141,14 +140,14 @@ def test_fn(model, scheduler, loss_fn, loop):
 
 def print_map(model, train_loader, test_loader):
     pred_boxes, target_boxes = get_bboxes(train_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS)
-    mean_avg_prec = map(
+    mean_avg_prec = mean_average_precision(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
     print(f"Train mAP: {mean_avg_prec:.5g}")
 
     pred_boxes, target_boxes = get_bboxes(test_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS,
                                           device=DEVICE)
-    mean_avg_prec = map(
+    mean_avg_prec = mean_average_precision(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
     print(f"Test mAP: {mean_avg_prec:.5g}")
@@ -178,10 +177,10 @@ def main(model, optimizer, scheduler):
                 "optimizer": optimizer.state_dict(),
             }
             save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
-            time.sleep(60)
+            # time.sleep(60)
 
-    time.sleep(5)
-    print_map(model, train_loader, test_loader)
+        if (epoch + 1) % 5 == 0:
+            print_map(model, train_loader, test_loader)
 
 
 if __name__ == "__main__":
