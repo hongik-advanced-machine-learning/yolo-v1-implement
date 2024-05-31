@@ -9,7 +9,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
 
-from model import Yolov1
+from model import YOLOv1
 from dataset import CustomDataset
 from utils import *
 from loss import YoloLoss
@@ -82,7 +82,7 @@ def load_dataloader():
 
 
 def load_model_optimizer_scheduler():
-    model = Yolov1(split_size=7, num_boxes=2, num_classes=NUM_CLASS, config=config).to(DEVICE)
+    model = YOLOv1(split_size=7, num_boxes=2, num_classes=NUM_CLASS).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
 

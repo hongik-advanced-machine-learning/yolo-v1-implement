@@ -3,8 +3,8 @@ yolo-v1:
   weight: data/darknet/model/yolov1-pytorch.pth
 
 param:
-  learning_rate: 0.01
-  batch_size: 64
+  learning_rate: 0.000001
+  batch_size: 16
   weight_decay: 0.0005
   epochs: 150
 
