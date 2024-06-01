@@ -49,74 +49,55 @@ class YoloLoss(nn.Module):
     #     is_object_exist = target[..., self.C].unsqueeze(3)  # in paper this is Iobj_i
     #
     #     localization_loss = self._localization(predictions, target, is_object_exist, bestbox)
+    #     confidence_loss = self._confidence(predictions, target, is_object_exist, bestbox)
+    #     classification_loss = self._classification(predictions, target, is_object_exist)
     #
-    #     # ==================== #
-    #     #   FOR OBJECT LOSS    #
-    #     # ==================== #
-    #
-    #     # pred_box is the confidence score for the bbox with highest IoU
-    #     pred_box = (
-    #             bestbox * predictions[..., self.C + 5:self.C + 6] + (1 - bestbox) * predictions[..., self.C:self.C + 1]
-    #     )
-    #
-    #     object_loss = self.mse(
-    #         torch.flatten(is_object_exist * pred_box),
-    #         torch.flatten(is_object_exist * target[..., self.C:self.C + 1]),
-    #     )
-    #
-    #     # ======================= #
-    #     #   FOR NO OBJECT LOSS    #
-    #     # ======================= #
-    #
-    #     # max_no_obj = torch.max(predictions[..., self.C:self.C+1], predictions[..., self.C+5:self.C+6])
-    #     # no_object_loss = self.mse(
-    #     #    torch.flatten((1 - exists_box) * max_no_obj, start_dim=1),
-    #     #    torch.flatten((1 - exists_box) * target[..., self.C:self.C+1], start_dim=1),
-    #     # )
-    #
-    #     no_object_loss = self.mse(
-    #         torch.flatten((1 - is_object_exist) * predictions[..., self.C:self.C + 1], start_dim=1),
-    #         torch.flatten((1 - is_object_exist) * target[..., self.C:self.C + 1], start_dim=1),
-    #     )
-    #
-    #     no_object_loss += self.mse(
-    #         torch.flatten((1 - is_object_exist) * predictions[..., self.C + 5:self.C + 6], start_dim=1),
-    #         torch.flatten((1 - is_object_exist) * target[..., self.C:self.C + 1], start_dim=1)
-    #     )
-    #
-    #     # ================== #
-    #     #   FOR CLASS LOSS   #
-    #     # ================== #
-    #
-    #     class_loss = self.mse(
-    #         torch.flatten(is_object_exist * predictions[..., :self.C], end_dim=-2, ),
-    #         torch.flatten(is_object_exist * target[..., :self.C], end_dim=-2, ),
-    #     )
-    #
-    #     loss = (
-    #             self.lambda_coord * localization_loss  # first two rows in paper
-    #             + object_loss  # third row in paper
-    #             + self.lambda_noobj * no_object_loss  # forth row
-    #             + class_loss  # fifth row
-    #     )
-    #
-    #     return loss
+    #     return localization_loss + confidence_loss + classification_loss
 
     def _localization(self,
                       predictions: torch.Tensor,
                       target: torch.Tensor,
                       is_object_exist: torch.Tensor,
                       bestbox: torch.Tensor):
-        mask = (bestbox * 5 + torch.arange(1, 5, device=bestbox.device)).view(-1, self.S, self.S, 4)
-        box_predictions = is_object_exist * torch.gather(predictions, -1, mask + self.C)
+        mask = bestbox * 5 + torch.arange(1, 5, device=bestbox.device)
+        pred_box = is_object_exist * torch.gather(predictions, -1, mask + self.C)
 
-        box_targets = is_object_exist * target[..., self.C + 1:self.C + 5]
+        target_box = is_object_exist * target[..., self.C + 1:self.C + 5]
 
-        # -0.0이 있어 nan이 나오는 경우가 있음
-        box_predictions[..., 2:4] = torch.sqrt(torch.abs(box_predictions[..., 2:4] + 1e-6))
-        box_targets[..., 2:4] = torch.sqrt(box_targets[..., 2:4])
-        box_loss = self.mse(box_predictions, box_targets)
-        return box_loss
+        # # -0.0이 있어 nan이 나오는 경우가 있음
+        pred_box[..., 2:4] = torch.sign(pred_box[..., 2:4]) * torch.sqrt(
+            torch.abs(pred_box[..., 2:4] + 1e-6)
+        )
+        target_box[..., 2:4] = torch.sqrt(target_box[..., 2:4])
+        box_loss = self.mse(pred_box, target_box)
+
+        return self.lambda_coord * box_loss
+
+    def _confidence(self, predictions, target, is_object_exist, bestbox):
+        mask = bestbox * 5
+        pred_box = (torch.gather(predictions, -1, mask + self.C))
+        target_box = target[..., self.C:self.C + 1]
+
+        object_loss = self.mse(
+            torch.flatten(is_object_exist * pred_box),
+            torch.flatten(is_object_exist * target_box),
+        )
+
+        batch_size = predictions.shape[0]
+        mask = (torch.arange(self.B, device=is_object_exist.device) * 5).repeat(batch_size, self.S, self.S, 1)
+
+        no_object_loss = self.mse(
+            torch.flatten((1 - is_object_exist) * torch.gather(predictions, -1, mask + self.C)),
+            torch.flatten((1 - is_object_exist) * target_box.repeat(1, 1, 1, self.B))
+        )
+
+        return object_loss + self.lambda_noobj * no_object_loss
+
+    def _classification(self, predictions, target, is_object_exist):
+        return self.mse(
+            torch.flatten(is_object_exist * predictions[..., :self.C]),
+            torch.flatten(is_object_exist * target[..., :self.C])
+        )
 
     def forward(self, predictions, target):
         # predictions are shaped (BATCH_SIZE, S*S(C+B*5) when inputted
