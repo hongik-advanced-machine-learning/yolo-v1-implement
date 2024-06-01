@@ -184,6 +184,7 @@ def mean_average_precision(
         if total_true_bboxes == 0:
             continue
 
+
         for detection_idx, detection in enumerate(detections):
             # Only take out the ground_truths that have the same
             # training idx as detection
@@ -370,7 +371,7 @@ def get_bboxes(
         threshold,
         pred_format="cells",
         box_format="midpoint",
-        device="mps",
+        device="cuda",
         S=7,
         C=20
 ):

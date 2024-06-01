@@ -6,13 +6,16 @@ import torch
 import torchvision.transforms as transforms
 import torch.optim as optim
 from tqdm import tqdm
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
 
-from model import Yolov1
+from model import YOLOv1
 from dataset import CustomDataset
 from utils import *
 from loss import YoloLoss
+
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
@@ -40,17 +43,55 @@ LOAD_MODEL_FILE = config["pytorch"]["model_path"]
 DATASET = config["dataset"]["name"]
 NUM_CLASS = config["dataset"]["num_class"]
 
-transform = transforms.Compose([transforms.Resize((448, 448)), transforms.ToTensor(), ])
+# Data augmentation with horizontal and vertical flips
+train_transforms_original = A.Compose([
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
 
+train_transforms_hflip = A.Compose([
+    A.HorizontalFlip(p=1.0),
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
+
+train_transforms_vflip = A.Compose([
+    A.VerticalFlip(p=1.0),
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
+
+test_transforms = A.Compose([
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
 
 def load_dataloader():
-    train_dataset = CustomDataset(
+    original_dataset = CustomDataset(
         os.path.join("data", DATASET, "train.csv"),
-        transform=transform,
+        transform=train_transforms_original,
         img_dir=os.path.join("data", DATASET, "images"),
         label_dir=os.path.join("data", DATASET, "labels"),
         C=NUM_CLASS,
     )
+
+    hflip_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_hflip,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    vflip_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_vflip,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    train_dataset = ConcatDataset([original_dataset, hflip_dataset, vflip_dataset])
 
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -63,7 +104,7 @@ def load_dataloader():
 
     test_dataset = CustomDataset(
         os.path.join("data", DATASET, "test.csv"),
-        transform=transform,
+        transform=test_transforms,
         img_dir=os.path.join("data", DATASET, "images"),
         label_dir=os.path.join("data", DATASET, "labels"),
         C=NUM_CLASS
@@ -82,7 +123,7 @@ def load_dataloader():
 
 
 def load_model_optimizer_scheduler():
-    model = Yolov1(split_size=7, num_boxes=2, num_classes=NUM_CLASS, config=config).to(DEVICE)
+    model = YOLOv1(split_size=7, num_boxes=2, num_classes=NUM_CLASS).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
 
