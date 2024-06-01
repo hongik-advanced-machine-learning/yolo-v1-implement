@@ -5,6 +5,8 @@ import yaml
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 from dataset import CustomDataset
 
@@ -43,14 +45,56 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
 
     ####################################여기 img_index조작해서 시각화할 이미지 넘버 넣기 주의! (2개이상부터 동작)
-    img_index = [25, 19, 28]
+    img_index = [0, 1, 2]
     ####################################################
     NUM_CLASS = 20
     COLUMNS = len(img_index)
 
-    train_dataset = CustomDataset(
+    train_transforms_original = A.Compose([
+        A.Normalize(mean=0.0, std=1.0),
+        A.Resize(448, 448),
+        ToTensorV2(),
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+    train_transforms_hflip = A.Compose([
+        A.Normalize(mean=0.0, std=1.0),
+        A.HorizontalFlip(p=1.0),
+        A.Resize(448, 448),
+        ToTensorV2(),
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+    train_transforms_vflip = A.Compose([
+        A.Normalize(mean=0.0, std=1.0),
+        A.VerticalFlip(p=1.0),
+        A.Resize(448, 448),
+        ToTensorV2(),
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+    test_transforms = A.Compose([
+        A.Normalize(mean=0.0, std=1.0),
+        A.Resize(448, 448),
+        ToTensorV2(),
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+    original_dataset = CustomDataset(
         os.path.join("data", DATASET, "train.csv"),
-        transform=transforms.Compose([transforms.Resize((448, 448)), transforms.ToTensor(), ]),
+        transform=train_transforms_original,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    hflip_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_hflip,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    vflip_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_vflip,
         img_dir=os.path.join("data", DATASET, "images"),
         label_dir=os.path.join("data", DATASET, "labels"),
         C=NUM_CLASS,
@@ -61,7 +105,7 @@ if __name__ == "__main__":
     fig
 
     for t in range(COLUMNS):
-        image, label_matrix = train_dataset[img_index[t]]
+        image, label_matrix = hflip_dataset[img_index[t]]
 
         im = image.permute(1, 2, 0)
 
