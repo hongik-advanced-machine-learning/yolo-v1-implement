@@ -18,3 +18,6 @@ pytorch:
 dataset:
   name: VOC
   num_class: 20
+  test_path: "/content/drive/MyDrive/dataset/test.csv"
+  img_dir:  "/content/data/images"
+  label_dir: "/content/data/labels"
