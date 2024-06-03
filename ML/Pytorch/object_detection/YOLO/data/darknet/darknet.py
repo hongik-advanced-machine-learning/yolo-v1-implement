@@ -195,73 +195,6 @@ class DarkNet(nn.Module):
         )
         return conv
 
-    def _make_conv_layers(self):
-        """
-            padding = 1 and No BatchNormalization like extraction.conv.cfg
-        """
-        conv = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=1),
-            # padding=3 so, output is 224.
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(64, 192, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(192, 128, 1, padding=1),  ## kernel size = 1 이므로 padding = 0(defalut)
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(128, 256, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(256, 256, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(256, 512, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(512, 256, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(256, 512, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(512, 256, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(256, 512, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(512, 256, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(256, 512, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(512, 256, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(256, 512, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(512, 512, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(512, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(1024, 512, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(512, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(1024, 512, 1, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(512, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True)
-        )
-        return conv
-
     def _make_fc_layers(self):
         fc = nn.Sequential(
             nn.AvgPool2d(7),
@@ -320,20 +253,6 @@ class DarkNet(nn.Module):
         #         print(f"{weight.size - ptr} weight & bias remain")
 
         return True
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
-
 
 class Squeeze(nn.Module):
     def __init__(self):

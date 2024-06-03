@@ -16,8 +16,8 @@ class YOLOv1(nn.Module):
     def __init__(self, **kwargs):
         super(YOLOv1, self).__init__()
 
-        darknet = DarkNet("data/darknet/cfg/extraction.conv.cfg")
-        darknet.load_weights("data/darknet/weight/extraction.conv.weights")
+        darknet = DarkNet("data/darknet/cfg/yolov1-tiny.cfg")
+        darknet.load_weights("data/darknet/weight/tiny-yolov1.weights")
 
         self.S = kwargs["split_size"]
         self.B = kwargs["num_boxes"]
@@ -25,15 +25,15 @@ class YOLOv1(nn.Module):
 
         # Make layers
         self.features = darknet.features  # yolov1 uses pretrained darkent layers..
-        self.features2 = self._make_conv_layers()
+        # self.features2 = self._make_conv_layers()
         self.fc = self._make_fc_layers()
 
-        for param in self.features.parameters():
-            param.requires_grad = False
+        # for param in self.features.parameters():
+        #     param.requires_grad = False
 
     def forward(self, x):
         x = self.features(x)
-        x = self.features2(x)
+        # x = self.features2(x)
         x = self.fc(x)
         x = x.view(-1, self.S, self.S, 5 * self.B + self.C)
         return x
@@ -58,7 +58,7 @@ class YOLOv1(nn.Module):
     def _make_fc_layers(self):  ## 2 Fully connected
         fc = nn.Sequential(
             Flatten(),
-            nn.Linear(in_features=self.S * self.S * 1024, out_features=4096),
+            nn.Linear(in_features=self.S * self.S * 256, out_features=4096),
             nn.LeakyReLU(0.1, inplace=True),
             # nn.Dropout(0.5),  # defalut inplace = False
             nn.Linear(in_features=4096, out_features=(self.S * self.S * (5 * self.B + self.C))),
@@ -75,10 +75,10 @@ class Flatten(nn.Module):
 
 
 def test():
-    yolo = YOLOv1()
+    yolo = YOLOv1(split_size=7, num_boxes=2, num_classes=20)
 
-    print(yolo)
-    summary(yolo, (3, 448, 448))
+    # print(yolo)
+    # summary(yolo, (3, 448, 448))
 
 
 if __name__ == '__main__':

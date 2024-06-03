@@ -130,7 +130,7 @@ def load_dataloader():
 def load_model_optimizer_scheduler():
     model = YOLOv1(split_size=7, num_boxes=2, num_classes=NUM_CLASS).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=1)
 
     try:
         load_checkpoint(torch.load(LOAD_MODEL_FILE, map_location=DEVICE), model, optimizer)
