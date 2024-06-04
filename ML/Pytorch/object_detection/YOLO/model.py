@@ -24,43 +24,24 @@ class YOLOv1(nn.Module):
         self.C = kwargs["num_classes"]
 
         # Make layers
-        self.features = darknet.features  # yolov1 uses pretrained darkent layers..
-        # self.features2 = self._make_conv_layers()
+        self.features = darknet.features
         self.fc = self._make_fc_layers()
 
-        # for param in self.features.parameters():
-        #     param.requires_grad = False
+        for param in self.features.parameters():
+            param.requires_grad = False
 
     def forward(self, x):
         x = self.features(x)
-        # x = self.features2(x)
         x = self.fc(x)
         x = x.view(-1, self.S, self.S, 5 * self.B + self.C)
         return x
-
-    def _make_conv_layers(self):  # 4 Convs.
-        conv = nn.Sequential(
-            nn.Conv2d(1024, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(1024, 1024, 3, stride=2, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(1024, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(1024, 1024, 3, padding=1),
-            nn.LeakyReLU(0.1, inplace=True)
-        )
-
-        return conv
 
     def _make_fc_layers(self):  ## 2 Fully connected
         fc = nn.Sequential(
             Flatten(),
             nn.Linear(in_features=self.S * self.S * 256, out_features=4096),
             nn.LeakyReLU(0.1, inplace=True),
-            # nn.Dropout(0.5),  # defalut inplace = False
+            nn.Dropout(0.5),  # defalut inplace = False
             nn.Linear(in_features=4096, out_features=(self.S * self.S * (5 * self.B + self.C))),
         )
         return fc
@@ -77,8 +58,8 @@ class Flatten(nn.Module):
 def test():
     yolo = YOLOv1(split_size=7, num_boxes=2, num_classes=20)
 
-    # print(yolo)
-    # summary(yolo, (3, 448, 448))
+    print(yolo)
+    summary(yolo, (3, 448, 448))
 
 
 if __name__ == '__main__':
