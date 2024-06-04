@@ -8,6 +8,7 @@ import torch.optim as optim
 from tqdm import tqdm
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
+import cv2
 
 from model import YOLOv1
 from dataset import CustomDataset
@@ -64,6 +65,34 @@ train_transforms_vflip = A.Compose([
     ToTensorV2(),
 ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
 
+train_transforms_Rotation = A.Compose([
+        A.Normalize(mean=0.0, std=1.0),
+        A.Rotate(limit=10, p=1.0, border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0)),
+        A.Resize(448, 448),
+        ToTensorV2(),
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+train_transforms_RandomScale = A.Compose([
+    A.Normalize(mean=0.0, std=1.0),
+    A.RandomScale(scale_limit=0.2, p=1.0),
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+train_transforms_RandomMove = A.Compose([
+    A.Normalize(mean=0.0, std=1.0),
+    A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.0, rotate_limit=0, p=1.0, border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0)),
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+train_transforms_RandomColor = A.Compose([
+    A.Normalize(mean=0.0, std=1.0),
+    A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0.5, val_shift_limit=0.5, p=1.0),
+    A.Resize(448, 448),
+    ToTensorV2(),
+], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
 test_transforms = A.Compose([
     A.Normalize(mean=0.0, std=1.0),
     A.Resize(448, 448),
@@ -96,7 +125,39 @@ def load_dataloader():
         C=NUM_CLASS,
     )
 
-    train_dataset = ConcatDataset([original_dataset, hflip_dataset, vflip_dataset])
+    Rotation_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_Rotation,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    RandomScale_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_RandomScale,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    RandomMove_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_RandomMove,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    RandomColor_dataset = CustomDataset(
+        os.path.join("data", DATASET, "train.csv"),
+        transform=train_transforms_RandomColor,
+        img_dir=os.path.join("data", DATASET, "images"),
+        label_dir=os.path.join("data", DATASET, "labels"),
+        C=NUM_CLASS,
+    )
+
+    train_dataset = ConcatDataset([original_dataset, RandomScale_dataset, RandomColor_dataset, hflip_dataset, RandomMove_dataset, Rotation_dataset])
 
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -129,8 +190,8 @@ def load_dataloader():
 
 def load_model_optimizer_scheduler():
     model = YOLOv1(split_size=7, num_boxes=2, num_classes=NUM_CLASS).to(DEVICE)
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=1)
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=0)
 
     try:
         load_checkpoint(torch.load(LOAD_MODEL_FILE, map_location=DEVICE), model, optimizer)
@@ -185,15 +246,15 @@ def test_fn(model, scheduler, loss_fn, loop):
 
 
 def print_map(model, train_loader, test_loader):
-    pred_boxes, target_boxes = get_bboxes(train_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS)
-    mean_avg_prec = mean_average_precision(
-        pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
-    )
-    print(f"Train mAP: {mean_avg_prec:.5g}")
+    # pred_boxes, target_boxes = get_bboxes(train_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS)
+    # mean_avg_prec = mean_average_precision(
+    #     pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
+    # )
+    # print(f"Train mAP: {mean_avg_prec:.5g}")
 
     pred_boxes, target_boxes = get_bboxes(test_loader, model, iou_threshold=0.5, threshold=0.4, S=7, C=NUM_CLASS,
                                           device=DEVICE)
-    mean_avg_prec = mean_average_precision(
+    mean_avg_prec = map(
         pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=NUM_CLASS
     )
     print(f"Test mAP: {mean_avg_prec:.5g}")
@@ -223,10 +284,9 @@ def main(model, optimizer, scheduler):
                 "optimizer": optimizer.state_dict(),
             }
             save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
-            # time.sleep(60)
+            time.sleep(60)
 
-        if (epoch + 1) % 5 == 0:
-            print_map(model, train_loader, test_loader)
+        print_map(model, train_loader, test_loader)
 
 
 if __name__ == "__main__":
